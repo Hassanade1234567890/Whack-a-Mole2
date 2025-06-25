@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>2-Player Bear Whack-a-Mole</title>
+  <title>Whack-a-Mole</title>
   <style>
     body {
       font-family: sans-serif;
@@ -199,11 +198,13 @@
           bomb.remove();
           return;
         }
+
         position += fallSpeed;
         bomb.style.top = position + "px";
 
         const moleRects = [...document.querySelectorAll('.mole')].map(el => el.getBoundingClientRect());
         const bombRect = bomb.getBoundingClientRect();
+
         for (const rect of moleRects) {
           if (
             bombRect.left < rect.right &&
@@ -229,7 +230,7 @@
 
     function startFallingBombs() {
       const drop = () => {
-        if (timeUp) return;
+        if (timeUp || level !== 4) return;
         spawnFallingBomb();
         setTimeout(drop, Math.random() * 2000 + 1500);
       };
@@ -242,7 +243,7 @@
       pauseButton.textContent = "Stop";
       createHolesForLevel(level);
       peep();
-      startFallingBombs();
+      if (level === 4) startFallingBombs();
       startCountdown();
     }
 
