@@ -1,0 +1,264 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>2-Player Bear Whack-a-Mole</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #fff3e0;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    .game {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+      gap: 20px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hole {
+      width: 100px;
+      height: 100px;
+      background: #795548;
+      border-radius: 50%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mole {
+      width: 80px;
+      height: 80px;
+      background: url('mole.jpeg') center/cover no-repeat;
+      position: absolute;
+      bottom: -80px;
+      left: 10px;
+      transition: bottom 0.3s;
+      cursor: pointer;
+    }
+
+    .mole.up {
+      bottom: 0;
+    }
+
+    .falling-bomb {
+      position: fixed;
+      top: 0px;
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle, red 40%, darkred 100%);
+      border-radius: 50%;
+      z-index: 999;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐻 Whack-a-Mole!</h1>
+  <p>
+    ⏱ Time Left: <span id="time">15</span>s |
+    Level: <span id="level">1</span> |
+    👤 Score: <span id="score">0</span>
+  </p>
+
+  <button id="startButton">Start Game</button>
+  <button id="pauseButton">Stop</button>
+
+  <div class="game" id="gameArea"></div>
+
+  <script>
+    const gameArea = document.getElementById('gameArea');
+    const timeDisplay = document.getElementById('time');
+    const levelDisplay = document.getElementById('level');
+    const startButton = document.getElementById('startButton');
+    const pauseButton = document.getElementById('pauseButton');
+    const scoreDisplay = document.getElementById('score');
+
+    let timeLeft = 15;
+    let timeUp = false;
+    let isPaused = false;
+    let level = 1;
+    let countdownInterval;
+    let holes = [];
+    let lastHole;
+    let score = 0;
+
+    const levelHoleCount = {
+      1: 3,
+      2: 6,
+      3: 9,
+      4: 11,
+      5: 14
+    };
+
+    function createHolesForLevel(level) {
+      gameArea.innerHTML = '';
+      const count = levelHoleCount[level] || 3;
+      holes = [];
+
+      for (let i = 0; i < count; i++) {
+        const hole = document.createElement('div');
+        hole.classList.add('hole');
+
+        const mole = document.createElement('div');
+        mole.classList.add('mole');
+
+        mole.addEventListener('click', bonk);
+
+        hole.appendChild(mole);
+        gameArea.appendChild(hole);
+        holes.push(hole);
+      }
+    }
+
+    function randomTime(min, max) {
+      return Math.round(Math.random() * (max - min) + min);
+    }
+
+    function randomHole() {
+      const idx = Math.floor(Math.random() * holes.length);
+      const hole = holes[idx];
+      if (hole === lastHole) return randomHole();
+      lastHole = hole;
+      return hole;
+    }
+
+    function peep() {
+      if (timeUp || isPaused) return;
+
+      const minTime = 300 - level * 20;
+      const maxTime = 1000 - level * 50;
+      const time = randomTime(Math.max(minTime, 100), Math.max(maxTime, 200));
+      const hole = randomHole();
+      const mole = hole.querySelector('.mole');
+      mole.classList.add('up');
+
+      setTimeout(() => {
+        mole.classList.remove('up');
+        if (!timeUp && !isPaused) peep();
+      }, time);
+    }
+
+    function bonk(e) {
+      if (!e.isTrusted) return;
+      this.classList.remove('up');
+      score++;
+      scoreDisplay.textContent = score;
+    }
+
+    function startCountdown() {
+      timeLeft = 15;
+      timeDisplay.textContent = timeLeft;
+
+      countdownInterval = setInterval(() => {
+        if (isPaused) return;
+
+        timeLeft--;
+        timeDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          timeUp = true;
+          alert(`Level ${level} done!`);
+          if (level < 5) {
+            level++;
+            levelDisplay.textContent = level;
+            startGame();
+          } else {
+            alert(`🎉 Game Over! Your Score: ${score}`);
+          }
+        }
+      }, 1000);
+    }
+
+    function spawnFallingBomb() {
+      if (timeUp) return;
+      const bomb = document.createElement("div");
+      bomb.classList.add("falling-bomb");
+      bomb.style.left = Math.random() * (window.innerWidth - 50) + "px";
+      document.body.appendChild(bomb);
+
+      let position = 0;
+      const fallSpeed = 4;
+
+      const fall = setInterval(() => {
+        if (isPaused || timeUp) {
+          clearInterval(fall);
+          bomb.remove();
+          return;
+        }
+        position += fallSpeed;
+        bomb.style.top = position + "px";
+
+        const moleRects = [...document.querySelectorAll('.mole')].map(el => el.getBoundingClientRect());
+        const bombRect = bomb.getBoundingClientRect();
+        for (const rect of moleRects) {
+          if (
+            bombRect.left < rect.right &&
+            bombRect.right > rect.left &&
+            bombRect.top < rect.bottom &&
+            bombRect.bottom > rect.top
+          ) {
+            clearInterval(fall);
+            bomb.remove();
+            alert("💣 You touched a red bomb! Game Over!");
+            timeUp = true;
+            clearInterval(countdownInterval);
+            return;
+          }
+        }
+
+        if (position > window.innerHeight - 50) {
+          clearInterval(fall);
+          bomb.remove();
+        }
+      }, 30);
+    }
+
+    function startFallingBombs() {
+      const drop = () => {
+        if (timeUp) return;
+        spawnFallingBomb();
+        setTimeout(drop, Math.random() * 2000 + 1500);
+      };
+      drop();
+    }
+
+    function startGame() {
+      timeUp = false;
+      isPaused = false;
+      pauseButton.textContent = "Stop";
+      createHolesForLevel(level);
+      peep();
+      startFallingBombs();
+      startCountdown();
+    }
+
+    startButton.addEventListener('click', () => {
+      score = 0;
+      scoreDisplay.textContent = score;
+      level = 1;
+      levelDisplay.textContent = level;
+      startGame();
+    });
+
+    pauseButton.addEventListener('click', () => {
+      isPaused = !isPaused;
+      pauseButton.textContent = isPaused ? "Resume" : "Stop";
+      if (!isPaused) peep();
+    });
+  </script>
+</body>
+</html>
