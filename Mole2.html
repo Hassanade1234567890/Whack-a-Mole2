@@ -2,21 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Whack-a-Mole</title>
+  <title>🐻 Whack-a-Bear Game</title>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
       background: #fff3e0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
-
     button {
       padding: 10px 20px;
       font-size: 16px;
-      margin: 5px;
+      margin: 10px;
       cursor: pointer;
     }
-
     .game {
       display: flex;
       flex-wrap: wrap;
@@ -27,7 +28,6 @@
       margin-left: auto;
       margin-right: auto;
     }
-
     .hole {
       width: 100px;
       height: 100px;
@@ -36,7 +36,6 @@
       position: relative;
       overflow: hidden;
     }
-
     .mole {
       width: 80px;
       height: 80px;
@@ -47,16 +46,14 @@
       transition: bottom 0.3s;
       cursor: pointer;
     }
-
     .mole.up {
       bottom: 0;
     }
-
     .falling-bomb {
       position: fixed;
       top: 0px;
-      width: 40px;
-      height: 40px;
+      width: 70px;
+      height: 70px;
       background: radial-gradient(circle, red 40%, darkred 100%);
       border-radius: 50%;
       z-index: 999;
@@ -65,17 +62,19 @@
   </style>
 </head>
 <body>
-  <h1>🐻 Whack-a-Mole!</h1>
+  <h1>🐻 Whack-a-Bear!</h1>
   <p>
     ⏱ Time Left: <span id="time">15</span>s |
     Level: <span id="level">1</span> |
     👤 Score: <span id="score">0</span>
   </p>
-
   <button id="startButton">Start Game</button>
   <button id="pauseButton">Stop</button>
-
   <div class="game" id="gameArea"></div>
+
+  <audio id="bgMusic" loop>
+    <source src="c:\Users\dell\Downloads\sigma_boy.mp3">
+  </audio>
 
   <script>
     const gameArea = document.getElementById('gameArea');
@@ -84,6 +83,7 @@
     const startButton = document.getElementById('startButton');
     const pauseButton = document.getElementById('pauseButton');
     const scoreDisplay = document.getElementById('score');
+    const bgMusic = document.getElementById('bgMusic');
 
     let timeLeft = 15;
     let timeUp = false;
@@ -106,16 +106,12 @@
       gameArea.innerHTML = '';
       const count = levelHoleCount[level] || 3;
       holes = [];
-
       for (let i = 0; i < count; i++) {
         const hole = document.createElement('div');
         hole.classList.add('hole');
-
         const mole = document.createElement('div');
         mole.classList.add('mole');
-
         mole.addEventListener('click', bonk);
-
         hole.appendChild(mole);
         gameArea.appendChild(hole);
         holes.push(hole);
@@ -136,14 +132,12 @@
 
     function peep() {
       if (timeUp || isPaused) return;
-
       const minTime = 300 - level * 20;
       const maxTime = 1000 - level * 50;
       const time = randomTime(Math.max(minTime, 100), Math.max(maxTime, 200));
       const hole = randomHole();
       const mole = hole.querySelector('.mole');
       mole.classList.add('up');
-
       setTimeout(() => {
         mole.classList.remove('up');
         if (!timeUp && !isPaused) peep();
@@ -158,25 +152,31 @@
     }
 
     function startCountdown() {
+      clearInterval(countdownInterval);
       timeLeft = 15;
       timeDisplay.textContent = timeLeft;
-
       countdownInterval = setInterval(() => {
         if (isPaused) return;
-
         timeLeft--;
         timeDisplay.textContent = timeLeft;
-
         if (timeLeft <= 0) {
           clearInterval(countdownInterval);
           timeUp = true;
-          alert(`Level ${level} done!`);
+          bgMusic.pause();
+
+          const requiredScore = level * 2;
+          if (score < requiredScore) {
+            alert(`❌ Not enough score to pass level ${level}. You need ${requiredScore}. Try again.`);
+            return startGame();
+          }
+
+          alert(`✅ Level ${level} done!`);
           if (level < 5) {
             level++;
             levelDisplay.textContent = level;
             startGame();
           } else {
-            alert(`🎉 Game Over! Your Score: ${score}`);
+            alert(`🎉 Game Over! Final Score: ${score}`);
           }
         }
       }, 1000);
@@ -186,25 +186,20 @@
       if (timeUp) return;
       const bomb = document.createElement("div");
       bomb.classList.add("falling-bomb");
-      bomb.style.left = Math.random() * (window.innerWidth - 50) + "px";
+      bomb.style.left = Math.random() * (window.innerWidth - 60) + "px";
       document.body.appendChild(bomb);
-
       let position = 0;
       const fallSpeed = 4;
-
       const fall = setInterval(() => {
         if (isPaused || timeUp) {
           clearInterval(fall);
           bomb.remove();
           return;
         }
-
         position += fallSpeed;
         bomb.style.top = position + "px";
-
-        const moleRects = [...document.querySelectorAll('.mole')].map(el => el.getBoundingClientRect());
         const bombRect = bomb.getBoundingClientRect();
-
+        const moleRects = [...document.querySelectorAll('.mole')].map(el => el.getBoundingClientRect());
         for (const rect of moleRects) {
           if (
             bombRect.left < rect.right &&
@@ -214,14 +209,14 @@
           ) {
             clearInterval(fall);
             bomb.remove();
+            bgMusic.pause();
             alert("💣 You touched a red bomb! Game Over!");
             timeUp = true;
             clearInterval(countdownInterval);
             return;
           }
         }
-
-        if (position > window.innerHeight - 50) {
+        if (position > window.innerHeight - 60) {
           clearInterval(fall);
           bomb.remove();
         }
@@ -230,35 +225,45 @@
 
     function startFallingBombs() {
       const drop = () => {
-        if (timeUp || level !== 4) return;
-        spawnFallingBomb();
-        setTimeout(drop, Math.random() * 2000 + 1500);
+        if (timeUp) return;
+        if (level >= 4) spawnFallingBomb();
+        setTimeout(drop, Math.random() * 2000 + 1000); // faster drop
       };
       drop();
     }
 
-    function startGame() {
+    async function startGame() {
       timeUp = false;
       isPaused = false;
       pauseButton.textContent = "Stop";
       createHolesForLevel(level);
       peep();
-      if (level === 4) startFallingBombs();
+      startFallingBombs();
       startCountdown();
+      try {
+        await bgMusic.play();
+      } catch (err) {
+        console.log("Music play blocked by browser until user interacts.");
+      }
     }
 
-    startButton.addEventListener('click', () => {
+    startButton.addEventListener('click', async () => {
       score = 0;
       scoreDisplay.textContent = score;
       level = 1;
       levelDisplay.textContent = level;
-      startGame();
+      await startGame();
     });
 
     pauseButton.addEventListener('click', () => {
       isPaused = !isPaused;
       pauseButton.textContent = isPaused ? "Resume" : "Stop";
-      if (!isPaused) peep();
+      if (isPaused) {
+        bgMusic.pause();
+      } else {
+        bgMusic.play();
+        peep();
+      }
     });
   </script>
 </body>
